@@ -3,6 +3,8 @@ import cloneDeep from "lodash/cloneDeep";
 
 import type { RemotelySavePluginSettings } from "../src/baseTypes";
 import { messyConfigToNormal, normalConfigToMessy } from "../src/configPersist";
+import { projectSettingsCompatibilityForPersistence } from "../src/main";
+
 import {
   applyPrimaryTargetToLegacySettingsInplace,
   ensureRemoteServicesAndSyncTargetsInplace,
@@ -362,5 +364,43 @@ describe("Config Persist tests", () => {
     assert.equal(settings.s3.remotePrefix, "remaining-prefix");
     assert.deepEqual(settings.ignorePaths, ["^updated-after-delete/"]);
     assert.deepEqual(settings.onlyAllowPaths, ["^keep-after-delete/"]);
+  });
+
+  it("should persist structured primary edits after legacy migration", () => {
+    const settings = createSettings();
+    settings.serviceType = "webdav";
+    settings.webdav = {
+      address: "https://legacy.example",
+      remoteBaseDir: "legacy-base",
+    } as any;
+    settings.ignorePaths = ["^legacy/"];
+    settings.onlyAllowPaths = ["^legacy-allow/"];
+
+    const projectionState = {
+      explicitStructuredConfigLoaded: false,
+      legacyProjectedStructuredSnapshot: "",
+    };
+
+    projectSettingsCompatibilityForPersistence(settings, projectionState);
+
+    settings.remoteServices![0].serviceType = "s3";
+    settings.remoteServices![0].config = {
+      s3AccessKeyID: "structured-acc",
+    } as any;
+    settings.syncTargets![0].remoteServiceId = settings.remoteServices![0].id;
+    delete settings.syncTargets![0].remoteBaseDir;
+    settings.syncTargets![0].remotePrefix = "structured-prefix";
+    settings.syncTargets![0].ignorePaths = ["^structured/"];
+    settings.syncTargets![0].onlyAllowPaths = ["^structured-allow/"];
+
+    projectSettingsCompatibilityForPersistence(settings, projectionState);
+
+    assert.equal(projectionState.explicitStructuredConfigLoaded, true);
+    assert.equal(settings.serviceType, "s3");
+    assert.equal(settings.s3.s3AccessKeyID, "structured-acc");
+    assert.equal(settings.s3.remotePrefix, "structured-prefix");
+    assert.equal(settings.syncTargets?.[0].remotePrefix, "structured-prefix");
+    assert.deepEqual(settings.ignorePaths, ["^structured/"]);
+    assert.deepEqual(settings.onlyAllowPaths, ["^structured-allow/"]);
   });
 });

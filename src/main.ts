@@ -168,6 +168,51 @@ const DEFAULT_SETTINGS: RemotelySavePluginSettings = {
 ensureRemoteServicesAndSyncTargetsInplace(DEFAULT_SETTINGS);
 applyLegacySettingsToPrimaryTargetInplace(DEFAULT_SETTINGS);
 
+export const hasExplicitStructuredConfig = (
+  settings: Partial<RemotelySavePluginSettings> | null | undefined
+) => {
+  if (settings === null || settings === undefined) {
+    return false;
+  }
+  return (
+    (Array.isArray(settings.remoteServices) &&
+      settings.remoteServices.length > 0) ||
+    (Array.isArray(settings.syncTargets) && settings.syncTargets.length > 0)
+  );
+};
+
+const getStructuredConfigSnapshot = (
+  settings: Partial<RemotelySavePluginSettings>
+) => {
+  return JSON.stringify({
+    remoteServices: settings.remoteServices ?? [],
+    syncTargets: settings.syncTargets ?? [],
+  });
+};
+
+export const projectSettingsCompatibilityForPersistence = (
+  settings: RemotelySavePluginSettings,
+  projectionState: {
+    explicitStructuredConfigLoaded: boolean;
+    legacyProjectedStructuredSnapshot: string;
+  }
+) => {
+  ensureRemoteServicesAndSyncTargetsInplace(settings);
+  if (
+    projectionState.explicitStructuredConfigLoaded ||
+    (projectionState.legacyProjectedStructuredSnapshot !== "" &&
+      getStructuredConfigSnapshot(settings) !==
+        projectionState.legacyProjectedStructuredSnapshot)
+  ) {
+    projectionState.explicitStructuredConfigLoaded = true;
+    applyPrimaryTargetToLegacySettingsInplace(settings);
+  } else {
+    applyLegacySettingsToPrimaryTargetInplace(settings);
+  }
+  projectionState.legacyProjectedStructuredSnapshot =
+    getStructuredConfigSnapshot(settings);
+};
+
 interface OAuth2Info {
   verifier?: string;
   helperModal?: Modal;
@@ -242,6 +287,12 @@ export default class RemotelySavePlugin extends Plugin {
   debugServerTemp?: string;
   syncEvent?: Events;
   appContainerObserver?: MutationObserver;
+  explicitStructuredConfigLoaded = false;
+  legacyProjectedStructuredSnapshot = "";
+
+  syncSettingsCompatibilityProjection() {
+    projectSettingsCompatibilityForPersistence(this.settings, this);
+  }
 
   async syncRun(triggerSource: SyncTriggerSourceType = "manual") {
     const t = (x: TransItemType, vars?: any) => {
@@ -1365,18 +1416,13 @@ export default class RemotelySavePlugin extends Plugin {
 
   async loadSettings() {
     const loadedData = messyConfigToNormal(await this.loadData()) ?? {};
-    const hasStructuredConfig =
-      (Array.isArray((loadedData as any).remoteServices) &&
-        (loadedData as any).remoteServices.length > 0) ||
-      (Array.isArray((loadedData as any).syncTargets) &&
-        (loadedData as any).syncTargets.length > 0);
 
+    this.explicitStructuredConfigLoaded = hasExplicitStructuredConfig(
+      loadedData as Partial<RemotelySavePluginSettings>
+    );
+    this.legacyProjectedStructuredSnapshot = "";
     this.settings = Object.assign({}, cloneDeep(DEFAULT_SETTINGS), loadedData);
-    if (hasStructuredConfig) {
-      applyPrimaryTargetToLegacySettingsInplace(this.settings);
-    } else {
-      applyLegacySettingsToPrimaryTargetInplace(this.settings);
-    }
+    this.syncSettingsCompatibilityProjection();
 
     if (this.settings.syncBookmarks === undefined) {
       this.settings.syncBookmarks = false;
@@ -1542,15 +1588,13 @@ export default class RemotelySavePlugin extends Plugin {
     if (this.settings.azureblobstorage === undefined) {
       this.settings.azureblobstorage = DEFAULT_AZUREBLOBSTORAGE_CONFIG;
     }
-    ensureRemoteServicesAndSyncTargetsInplace(this.settings);
-    applyLegacySettingsToPrimaryTargetInplace(this.settings);
+    this.syncSettingsCompatibilityProjection();
 
     await this.saveSettings();
   }
 
   async saveSettings() {
-    ensureRemoteServicesAndSyncTargetsInplace(this.settings);
-    applyLegacySettingsToPrimaryTargetInplace(this.settings);
+    this.syncSettingsCompatibilityProjection();
     if (this.settings.obfuscateSettingFile) {
       await this.saveData(normalConfigToMessy(this.settings));
     } else {
