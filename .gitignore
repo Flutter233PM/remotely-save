@@ -26,12 +26,15 @@ logs.txt
 *.log
 *.tmp
 *.temp
+.npm-cache-npx/
+
 
 # editor
 .vscode/
 
 # Snow worktrees
 .snow/
+role.md
 
 # system files
 .DS_Store
