@@ -65,5 +65,6 @@ jobs:
           name: my-dist
           path: |
             main.js
+            *.main.js
             manifest.json
             styles.css

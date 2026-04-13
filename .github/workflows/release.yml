@@ -68,6 +68,7 @@ jobs:
         with:
           files: |
             main.js
+            *.main.js
             manifest.json
             styles.css
           token: ${{ secrets.GITHUB_TOKEN }}
