@@ -17,5 +17,19 @@ data.json
 # debug
 logs.txt
 
-# hidden files
-.*
+# local environment
+.env
+.env.local
+.env.*.local
+
+# local logs and temp files
+*.log
+*.tmp
+*.temp
+
+# editor
+.vscode/
+
+# system files
+.DS_Store
+Thumbs.db
