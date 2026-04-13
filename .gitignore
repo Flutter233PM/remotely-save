@@ -30,6 +30,9 @@ logs.txt
 # editor
 .vscode/
 
+# Snow worktrees
+.snow/
+
 # system files
 .DS_Store
 Thumbs.db
