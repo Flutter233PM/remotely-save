@@ -2,11 +2,11 @@
 
 [English](./README.md) | 中文
 
-这是Obsidian的一个非官方同步插件。如果你喜欢它或觉得它帮到了你，请考虑在Github上给它一颗[星星 ![GitHub Repo stars](https://img.shields.io/github/stars/fyears/remotely-save?style=social)](https://github.com/fyears/remotely-save)。
+这是 Obsidian 的一个非官方同步插件。如果你喜欢它或觉得它帮到了你，请考虑在 Github 上给它一颗[星星 ![GitHub Repo stars](https://img.shields.io/github/stars/fyears/remotely-save?style=social)](https://github.com/fyears/remotely-save)。
 
 [![BuildCI](https://github.com/fyears/remotely-save/actions/workflows/auto-build.yml/badge.svg)](https://github.com/fyears/remotely-save/actions/workflows/auto-build.yml)
 
-[![最新版本的下载量](https://img.shields.io/github/downloads-pre/remotely-save/remotely-save/latest/main.js?sort=semver)](https://github.com/fyears/remotely-save/releases)
+[![最新版本的下载量](https://img.shields.io/github/downloads-pre/Flutter233PM/remotely-save/latest/main.js?sort=semver)](https://github.com/Flutter233PM/remotely-save/releases)
 
 ## 免责声明
 
@@ -32,7 +32,7 @@
   - Koofr（PRO 功能）
   - Azure Blob Storage（PRO 功能）
   - [这里](./docs/services_connectable_or_not.md)详细展示了更多可连接（或不可连接）的服务。
-- **支持 Obsidian 移动版。**  vault 可以通过云服务作为“中介”在移动和桌面设备之间同步。
+- **支持 Obsidian 移动版。** vault 可以通过云服务作为“中介”在移动和桌面设备之间同步。
 - **支持[端到端加密](./docs/encryption/README.md)。** 如果用户指定密码，文件在发送到云之前会使用 openssl / rclone crypt 格式加密。
 - **支持计划自动同步。** 你也可以使用侧边栏按钮，或者或命令面板中的命令，来手动触发同步（又或者绑定热键组合然后触发）。
 - **[最小侵入性](./docs/minimal_intrusive_design.md)。**
@@ -53,7 +53,7 @@
 
 ## 问题、建议或错误
 
-非常欢迎你提出问题、发布任何建议或报告任何错误！该项目主要在GitHub上维护：
+非常欢迎你提出问题、发布任何建议或报告任何错误！该项目主要在 GitHub 上维护：
 
 - 问题：[GitHub 仓库讨论](https://github.com/remotely-save/remotely-save/discussions)
 - 建议：也在[GitHub 仓库讨论](https://github.com/remotely-save/remotely-save/discussions)
@@ -64,8 +64,8 @@
 ## 下载和安装
 
 - 选项 #1：在官方“社区插件列表”中搜索，或访问此链接：[https://obsidian.md/plugins?id=remotely-save](https://obsidian.md/plugins?id=remotely-save)（应该会重定向到 Obsidian app），然后安装插件。
-- 选项 #2：你也可以使用 [Obsidian42 - BRAT](https://github.com/TfTHacker/obsidian42-brat) 来安装此插件。在 BRAT 的配置中输入 `remotely-save/remotely-save`。
-- 选项 #3：[![GitHub release (latest by SemVer and asset including pre-releases)](https://img.shields.io/github/downloads-pre/fyears/remotely-save/latest/main.js?sort=semver)](https://github.com/fyears/remotely-save/releases) 从最新发布中手动下载文件（`main.js`，`manifest.json`，`styles.css`）。
+- 选项 #2：你也可以使用 [Obsidian42 - BRAT](https://github.com/TfTHacker/obsidian42-brat) 来安装此插件。在 BRAT 的配置中输入 `Flutter233PM/remotely-save`。
+- 选项 #3：[![GitHub release (latest by SemVer and asset including pre-releases)](https://img.shields.io/github/downloads-pre/Flutter233PM/remotely-save/latest/main.js?sort=semver)](https://github.com/Flutter233PM/remotely-save/releases) 从最新发布中手动下载文件（`main.js`，`manifest.json`，`styles.css`）。
 - 选项 #4：[![BuildCI](https://github.com/fyears/remotely-save/actions/workflows/auto-build.yml/badge.svg)](https://github.com/fyears/remotely-save/actions/workflows/auto-build.yml) 每个成功的构建的“摘要”下都有构建文件。它是由每个提交自动生成的，可能不会正常工作。
 
 ## 使用方法
@@ -92,9 +92,9 @@
 
 ### Dropbox
 
-- **此插件不是官方Dropbox产品。** 插件只是使用 Dropbox 的公共API。
+- **此插件不是官方 Dropbox 产品。** 插件只是使用 Dropbox 的公共 API。
 - 授权后，插件可以读取你的姓名和电子邮件（在 Dropbox api 上无法取消选择），并读取和写入你的 Dropbox 的 `/Apps/remotely-save` 文件夹中的文件。
-- 如果你决定授权此插件连接到 Dropbox，请访问插件的设置页，选择Dropbox 然后按照说明操作。[更多带截图的信息在这里](./docs/dropbox_review_material/README.md)。
+- 如果你决定授权此插件连接到 Dropbox，请访问插件的设置页，选择 Dropbox 然后按照说明操作。[更多带截图的信息在这里](./docs/dropbox_review_material/README.md)。
 - 基于密码的端到端加密也是可以的。但请注意，**vault 名称本身未加密**。
 - 如果你想在多个设备之间同步文件，**在使用默认设置时，你的 vault 名称应该相同**。
 
@@ -102,8 +102,8 @@
 
 - **此插件不是官方 Microsoft / OneDrive 产品。** 插件只是使用 Microsoft 的 [OneDrive 公共 API](https://docs.microsoft.com/en-us/onedrive/developer/rest-api) 而已。
 - 此插件仅适用于“个人 OneDrive”，不适用于“OneDrive for Business。详见 [#11](https://github.com/fyears/remotely-save/issues/11)。
-- 授权后，插件可以读取你的姓名和电子邮件，并读取和写入你的OneDrive的 `/Apps/remotely-save` 文件夹中的文件。**Remotely Save 的免费版本仅连接到应用文件夹，而 PRO 版本可以连接到 Onedrive 的根文件夹。见下面的 PRO 部分。**
-- 如果你决定授权此插件连接到 OneDrive，请访问插件的设置页，选择OneDrive 然后按照说明操作。
+- 授权后，插件可以读取你的姓名和电子邮件，并读取和写入你的 OneDrive 的 `/Apps/remotely-save` 文件夹中的文件。**Remotely Save 的免费版本仅连接到应用文件夹，而 PRO 版本可以连接到 Onedrive 的根文件夹。见下面的 PRO 部分。**
+- 如果你决定授权此插件连接到 OneDrive，请访问插件的设置页，选择 OneDrive 然后按照说明操作。
 - 基于密码的端到端加密也是可以的。但请注意，**vault 名称本身未加密**。
 - 如果你想在多个设备之间同步文件，**在使用默认设置时，你的 vault 名称应该相同**。
 - 你可能还想查看 [OneDrive 的常见问题](./docs/remote_services/onedrive/README.md)。
@@ -123,8 +123,8 @@
   - [Nginx (`ngx_http_dav_module`, `nginx-dav-ext-module`, with Docker)](./docs/remote_services/webdav_nginx/README.md)
   - [Apache (with Docker)](./docs/remote_services/webdav_apache/README.md)
   - [Caddy with `http.handlers.webdav` module](./docs/remote_services/webdav_caddy/README.md)
-- 非常旧版本的Obsidian需要[配置 CORS](./docs/remote_services/webdav_general/webav_cors.md)。
-- 你的数据会同步到你的webdav服务器上的 `${vaultName}` 子文件夹。
+- 非常旧版本的 Obsidian 需要[配置 CORS](./docs/remote_services/webdav_general/webav_cors.md)。
+- 你的数据会同步到你的 webdav 服务器上的 `${vaultName}` 子文件夹。
 - 基于密码的端到端加密也是可以的。但请注意，**vault 名称本身未加密**。
 - 如果你想在多个设备之间同步文件，**在使用默认设置时，你的 vault 名称应该相同**。
 
@@ -163,7 +163,7 @@ PRO（付费）功能“与 Koofr 同步”允许用户与 Koofr 同步（使用
 
 PRO（付费）功能“与 Azure Blob Storage 同步”允许用户与 Azure Blob Storage 同步。教程和限制在[这里](./docs/remote_services/azureblobstorage/README.md)。
 
-## 智能冲突（PRO功能）
+## 智能冲突（PRO 功能）
 
 基本（免费）版本可以检测冲突，但用户必须选择保留较新版本或较大版本的文件两种选项之一。
 
@@ -188,7 +188,7 @@ PRO（付费）功能“智能冲突”为用户提供了另一个选项：合�
 
 然而，在最新版本中，你可以在设置中启用同步配置文件夹。请注意，这是一个实验性功能。特别是一些配置文件的修改时间每次 Obsidian 打开时都会改变，这破坏了插件的假设，因此某些信息可能无法正确同步。
 
-此外，Obsidian的书签实际上存储在 `.obsidian/bookmarks.json` 文件中的。你也可以在设置中设置同步这个文件（而不是整个配置文件夹）。插件将保持跨设备最新修改的文件。
+此外，Obsidian 的书签实际上存储在 `.obsidian/bookmarks.json` 文件中的。你也可以在设置中设置同步这个文件（而不是整个配置文件夹）。插件将保持跨设备最新修改的文件。
 
 ## 隐藏文件或文件夹
 
@@ -214,7 +214,7 @@ PRO（付费）功能“智能冲突”为用户提供了另一个选项：合�
 
 下载历史可以从非官方的 [Obsidian Stats](https://www.moritzjung.dev/obsidian-stats/plugins/remotely-save/#downloads) 查阅。（和官方 Obsidian，GitHub，Remotely Save 均无利益关系。）
 
-## 星星历史 
+## 星星历史
 
 （和官方 Obsidian，GitHub，Remotely Save 均无利益关系。）
 
