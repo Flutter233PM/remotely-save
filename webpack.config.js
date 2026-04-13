@@ -2,6 +2,7 @@ require("dotenv").config();
 const path = require("path");
 const webpack = require("webpack");
 const TerserPlugin = require("terser-webpack-plugin");
+const cleanStackShim = path.resolve(__dirname, "src/shims/clean-stack.js");
 
 const DEFAULT_DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || "";
 const DEFAULT_ONEDRIVE_CLIENT_ID = process.env.ONEDRIVE_CLIENT_ID || "";
@@ -77,7 +78,12 @@ module.exports = {
       },
       {
         test: /\.tsx?$/,
-        use: "ts-loader",
+        use: {
+          loader: "ts-loader",
+          options: {
+            transpileOnly: true,
+          },
+        },
         exclude: /node_modules/,
       },
       {
@@ -94,6 +100,9 @@ module.exports = {
   },
   resolve: {
     extensions: [".tsx", ".ts", ".js"],
+    alias: {
+      "clean-stack$": cleanStackShim,
+    },
     mainFields: ["browser", "module", "main"],
     fallback: {
       // assert: require.resolve("assert"),
