@@ -26,6 +26,8 @@ logs.txt
 *.log
 *.tmp
 *.temp
+.npm-cache-npx/
+
 
 # editor
 .vscode/
