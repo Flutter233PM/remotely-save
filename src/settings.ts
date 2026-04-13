@@ -14,9 +14,12 @@ import type {
   ConflictActionType,
   EmptyFolderCleanType,
   QRExportType,
+  RemoteServiceConfig,
+  RemotelySavePluginSettings,
   SUPPORTED_SERVICES_TYPE,
   SUPPORTED_SERVICES_TYPE_WITH_REMOTE_BASE_DIR,
   SyncDirectionType,
+  SyncTargetConfig,
   WebdavAuthType,
 } from "./baseTypes";
 
@@ -68,6 +71,12 @@ import {
   stringToFragment,
 } from "./misc";
 import { DEFAULT_PROFILER_CONFIG } from "./profiler";
+import {
+  ensureRemoteServicesAndSyncTargetsInplace,
+  getPrimarySyncTarget,
+  getRemoteServiceById,
+  projectSettingsForTarget,
+} from "./syncConfig";
 
 class PasswordModal extends Modal {
   plugin: RemotelySavePlugin;
@@ -821,33 +830,283 @@ export const wrapTextWithPasswordHide = (text: TextComponent) => {
   return text;
 };
 
+const getServiceName = (
+  serviceType: SUPPORTED_SERVICES_TYPE,
+  t: (x: TransItemType, vars?: any) => string
+) => {
+  switch (serviceType) {
+    case "s3":
+      return t("settings_chooseservice_s3");
+    case "dropbox":
+      return t("settings_chooseservice_dropbox");
+    case "webdav":
+      return t("settings_chooseservice_webdav");
+    case "onedrive":
+      return t("settings_chooseservice_onedrive");
+    case "webdis":
+      return t("settings_chooseservice_webdis");
+    case "googledrive":
+      return t("settings_chooseservice_googledrive");
+    case "onedrivefull":
+      return t("settings_chooseservice_onedrivefull");
+    case "box":
+      return t("settings_chooseservice_box");
+    case "pcloud":
+      return t("settings_chooseservice_pcloud");
+    case "yandexdisk":
+      return t("settings_chooseservice_yandexdisk");
+    case "koofr":
+      return t("settings_chooseservice_koofr");
+    case "azureblobstorage":
+      return t("settings_chooseservice_azureblobstorage");
+    default:
+      throw Error(`unknown service type ${serviceType}`);
+  }
+};
+
+const getRemoteServiceLabel = (
+  remoteService: RemoteServiceConfig,
+  t: (x: TransItemType, vars?: any) => string
+) => {
+  return `${getServiceName(remoteService.serviceType, t)} [${
+    remoteService.id
+  }]`;
+};
+
+const getSyncTargetLabel = (
+  target: SyncTargetConfig,
+  index: number,
+  settings: RemotelySavePluginSettings,
+  t: (x: TransItemType, vars?: any) => string
+) => {
+  const remoteService = getRemoteServiceById(settings, target.remoteServiceId);
+  const targetName =
+    target.label?.trim() !== "" ? target.label!.trim() : `target-${index + 1}`;
+  if (remoteService === undefined) {
+    return `${targetName} [${target.id}]`;
+  }
+  return `${targetName} [${target.id}] -> ${getRemoteServiceLabel(
+    remoteService,
+    t
+  )}`;
+};
+
+const getNextStructuredId = (
+  prefix: "target" | "service",
+  usedIds: string[]
+) => {
+  let next = usedIds.length + 1;
+  let candidate = `${prefix}-${next}`;
+  while (usedIds.includes(candidate)) {
+    next += 1;
+    candidate = `${prefix}-${next}`;
+  }
+  return candidate;
+};
+
+const assignDefaultTargetScopeInplace = (
+  target: SyncTargetConfig,
+  serviceType: SUPPORTED_SERVICES_TYPE,
+  app: App,
+  suffix: string
+) => {
+  delete target.remoteBaseDir;
+  delete target.remotePrefix;
+  delete target.deltaLink;
+
+  switch (serviceType) {
+    case "s3":
+    case "azureblobstorage":
+      target.remotePrefix = `${app.vault.getName()}-${suffix}`;
+      break;
+    case "dropbox":
+    case "webdav":
+    case "webdis":
+    case "googledrive":
+    case "box":
+    case "pcloud":
+    case "yandexdisk":
+    case "koofr":
+    case "onedrive":
+    case "onedrivefull":
+      target.remoteBaseDir = `${app.vault.getName()}-${suffix}`;
+      if (serviceType === "onedrive" || serviceType === "onedrivefull") {
+        target.deltaLink = "";
+      }
+      break;
+    default:
+      throw Error(`unknown service type ${serviceType}`);
+  }
+};
+
 export class RemotelySaveSettingTab extends PluginSettingTab {
   readonly plugin: RemotelySavePlugin;
+  readonly realPlugin: RemotelySavePlugin;
+  activeTargetId?: string;
 
   constructor(app: App, plugin: RemotelySavePlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    this.realPlugin = plugin;
   }
 
   display(): void {
+    (this as any).plugin = this.realPlugin;
     const { containerEl } = this;
     containerEl.style.setProperty("overflow-wrap", "break-word");
 
     containerEl.empty();
 
     const t = (x: TransItemType, vars?: any) => {
-      return this.plugin.i18n.t(x, vars);
+      return this.realPlugin.i18n.t(x, vars);
     };
 
+    ensureRemoteServicesAndSyncTargetsInplace(this.realPlugin.settings);
+    if (
+      this.activeTargetId === undefined ||
+      this.realPlugin.settings.syncTargets?.find((target) => {
+        return target.id === this.activeTargetId;
+      }) === undefined
+    ) {
+      this.activeTargetId =
+        getPrimarySyncTarget(this.realPlugin.settings)?.id ??
+        this.realPlugin.settings.syncTargets?.[0]?.id;
+    }
+    if (this.activeTargetId === undefined) {
+      throw Error("cannot find active sync target");
+    }
+
+    const targetProjection = projectSettingsForTarget(
+      this.realPlugin.settings,
+      this.activeTargetId
+    );
+    const activeTarget = targetProjection.target;
+    const activeRemoteService = targetProjection.remoteService;
+    const viewSettings = targetProjection.settings;
+    const saveProjectedSettings = async () => {
+      targetProjection.saveBack();
+      const preservedStructuredFields = {
+        serviceType: this.realPlugin.settings.serviceType,
+        ignorePaths: cloneDeep(this.realPlugin.settings.ignorePaths ?? []),
+        onlyAllowPaths: cloneDeep(
+          this.realPlugin.settings.onlyAllowPaths ?? []
+        ),
+        remoteServices: this.realPlugin.settings.remoteServices,
+        syncTargets: this.realPlugin.settings.syncTargets,
+      };
+      Object.assign(this.realPlugin.settings, cloneDeep(viewSettings));
+      this.realPlugin.settings.serviceType =
+        preservedStructuredFields.serviceType;
+      this.realPlugin.settings.ignorePaths =
+        preservedStructuredFields.ignorePaths;
+      this.realPlugin.settings.onlyAllowPaths =
+        preservedStructuredFields.onlyAllowPaths;
+      this.realPlugin.settings.remoteServices =
+        preservedStructuredFields.remoteServices;
+      this.realPlugin.settings.syncTargets =
+        preservedStructuredFields.syncTargets;
+      await this.realPlugin.saveSettings();
+    };
+    const proxyPlugin = new Proxy(this.realPlugin, {
+      get: (target, prop, receiver) => {
+        if (prop === "settings") {
+          return viewSettings;
+        }
+        if (prop === "saveSettings") {
+          return saveProjectedSettings;
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+      set: (target, prop, value, receiver) => {
+        if (prop === "settings") {
+          Object.assign(viewSettings, value ?? {});
+          return true;
+        }
+        return Reflect.set(target, prop, value, receiver);
+      },
+    }) as RemotelySavePlugin;
+    (this as any).plugin = proxyPlugin;
+
     containerEl.createEl("h1", { text: "Remotely Save" });
+
+    const syncTargetsDiv = containerEl.createDiv();
+    syncTargetsDiv.createEl("h2", { text: t("settings_synctargets") });
+    syncTargetsDiv.createEl("p", { text: t("settings_synctargets_desc") });
+
+    new Setting(syncTargetsDiv)
+      .setName(t("settings_synctarget_active"))
+      .setDesc(t("settings_synctarget_active_desc"))
+      .addDropdown((dropdown) => {
+        this.realPlugin.settings.syncTargets?.forEach((target, index) => {
+          dropdown.addOption(
+            target.id,
+            getSyncTargetLabel(target, index, this.realPlugin.settings, t)
+          );
+        });
+        dropdown
+          .setValue(this.activeTargetId ?? activeTarget.id)
+          .onChange((targetId) => {
+            this.activeTargetId = targetId;
+            this.display();
+          });
+      })
+      .addButton((button) => {
+        button.setButtonText(t("settings_synctarget_add_button"));
+        button.onClick(async () => {
+          const newTargetId = getNextStructuredId(
+            "target",
+            (this.realPlugin.settings.syncTargets ?? []).map(
+              (target) => target.id
+            )
+          );
+          const nextIndex =
+            (this.realPlugin.settings.syncTargets?.length ?? 0) + 1;
+          const newTarget: SyncTargetConfig = {
+            id: newTargetId,
+            remoteServiceId: activeTarget.remoteServiceId,
+            enabled: true,
+            ignorePaths: [],
+            onlyAllowPaths: [],
+          };
+          assignDefaultTargetScopeInplace(
+            newTarget,
+            activeRemoteService.serviceType,
+            this.app,
+            `${nextIndex}`
+          );
+          this.realPlugin.settings.syncTargets?.push(newTarget);
+          this.activeTargetId = newTargetId;
+          await this.realPlugin.saveSettings();
+          new Notice(t("settings_synctarget_added"));
+          this.display();
+        });
+      })
+      .addButton((button) => {
+        button.setButtonText(t("settings_synctarget_delete_button"));
+        button.onClick(async () => {
+          if ((this.realPlugin.settings.syncTargets?.length ?? 0) <= 1) {
+            new Notice(t("settings_synctarget_delete_notice_last"));
+            return;
+          }
+          this.realPlugin.settings.syncTargets = (
+            this.realPlugin.settings.syncTargets ?? []
+          ).filter((target) => {
+            return target.id !== activeTarget.id;
+          });
+          this.activeTargetId = this.realPlugin.settings.syncTargets?.[0]?.id;
+          await this.realPlugin.saveSettings();
+          new Notice(t("settings_synctarget_deleted"));
+          this.display();
+        });
+      });
 
     //////////////////////////////////////////////////
     // below for service chooser (part 1/2)
     //////////////////////////////////////////////////
 
-    // we need to create the div in advance of any other service divs
+    let newRemoteServiceType = activeRemoteService.serviceType;
     const serviceChooserDiv = containerEl.createDiv();
-    serviceChooserDiv.createEl("h2", { text: t("settings_chooseservice") });
+    serviceChooserDiv.createEl("h2", { text: t("settings_remoteservice") });
 
     //////////////////////////////////////////////////
     // below for s3
@@ -1935,22 +2194,61 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
 
     // we need to create chooser
     // after all service-div-s being created
+    let selectedRemoteServiceId = activeTarget.remoteServiceId;
     new Setting(serviceChooserDiv)
-      .setName(t("settings_chooseservice"))
-      .setDesc(t("settings_chooseservice_desc"))
-      .addDropdown(async (dropdown) => {
+      .setName(t("settings_remoteservice_current"))
+      .setDesc(t("settings_remoteservice_current_desc"))
+      .addDropdown((dropdown) => {
+        (this.realPlugin.settings.remoteServices ?? []).forEach(
+          (remoteService) => {
+            dropdown.addOption(
+              remoteService.id,
+              getRemoteServiceLabel(remoteService, t)
+            );
+          }
+        );
+        dropdown
+          .setValue(activeTarget.remoteServiceId)
+          .onChange(async (val) => {
+            selectedRemoteServiceId = val;
+            const selectedRemoteService = getRemoteServiceById(
+              this.realPlugin.settings,
+              selectedRemoteServiceId
+            );
+            if (selectedRemoteService === undefined) {
+              return;
+            }
+            const serviceTypeChanged =
+              selectedRemoteService.serviceType !==
+              activeRemoteService.serviceType;
+            activeTarget.remoteServiceId = selectedRemoteService.id;
+            if (serviceTypeChanged) {
+              assignDefaultTargetScopeInplace(
+                activeTarget,
+                selectedRemoteService.serviceType,
+                this.app,
+                activeTarget.id
+              );
+            }
+            await this.realPlugin.saveSettings();
+            this.display();
+          });
+      });
+
+    new Setting(serviceChooserDiv)
+      .setName(t("settings_remoteservice_create"))
+      .setDesc(t("settings_remoteservice_create_desc"))
+      .addDropdown((dropdown) => {
         dropdown.addOption("s3", t("settings_chooseservice_s3"));
         dropdown.addOption("dropbox", t("settings_chooseservice_dropbox"));
         dropdown.addOption("webdav", t("settings_chooseservice_webdav"));
         dropdown.addOption("onedrive", t("settings_chooseservice_onedrive"));
         dropdown.addOption("webdis", t("settings_chooseservice_webdis"));
-
         dropdown.addOption("separator line", "-----");
         (dropdown.selectEl.lastChild as HTMLElement).setAttribute(
           "disabled",
           "disabled"
         );
-
         dropdown.addOption(
           "googledrive",
           t("settings_chooseservice_googledrive")
@@ -1970,62 +2268,40 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
           "azureblobstorage",
           t("settings_chooseservice_azureblobstorage")
         );
-
-        dropdown
-          .setValue(this.plugin.settings.serviceType)
-          .onChange(async (val) => {
-            this.plugin.settings.serviceType = val as SUPPORTED_SERVICES_TYPE;
-            s3Div.toggleClass(
-              "s3-hide",
-              this.plugin.settings.serviceType !== "s3"
-            );
-            dropboxDiv.toggleClass(
-              "dropbox-hide",
-              this.plugin.settings.serviceType !== "dropbox"
-            );
-            onedriveDiv.toggleClass(
-              "onedrive-hide",
-              this.plugin.settings.serviceType !== "onedrive"
-            );
-            onedriveFullDiv.toggleClass(
-              "onedrivefull-hide",
-              this.plugin.settings.serviceType !== "onedrivefull"
-            );
-            webdavDiv.toggleClass(
-              "webdav-hide",
-              this.plugin.settings.serviceType !== "webdav"
-            );
-            webdisDiv.toggleClass(
-              "webdis-hide",
-              this.plugin.settings.serviceType !== "webdis"
-            );
-            googleDriveDiv.toggleClass(
-              "googledrive-hide",
-              this.plugin.settings.serviceType !== "googledrive"
-            );
-            boxDiv.toggleClass(
-              "box-hide",
-              this.plugin.settings.serviceType !== "box"
-            );
-            pCloudDiv.toggleClass(
-              "pcloud-hide",
-              this.plugin.settings.serviceType !== "pcloud"
-            );
-            yandexDiskDiv.toggleClass(
-              "yandexdisk-hide",
-              this.plugin.settings.serviceType !== "yandexdisk"
-            );
-            koofrDiv.toggleClass(
-              "koofr-hide",
-              this.plugin.settings.serviceType !== "koofr"
-            );
-            azureBlobStorageDiv.toggleClass(
-              "azureblobstorage-hide",
-              this.plugin.settings.serviceType !== "azureblobstorage"
-            );
-
-            await this.plugin.saveSettings();
-          });
+        dropdown.setValue(newRemoteServiceType).onChange((val) => {
+          newRemoteServiceType = val as SUPPORTED_SERVICES_TYPE;
+        });
+      })
+      .addButton((button) => {
+        button.setButtonText(t("settings_remoteservice_create_button"));
+        button.onClick(async () => {
+          const newServiceId = getNextStructuredId(
+            "service",
+            (this.realPlugin.settings.remoteServices ?? []).map(
+              (remoteService) => {
+                return remoteService.id;
+              }
+            )
+          );
+          const newRemoteService = {
+            id: newServiceId,
+            serviceType: newRemoteServiceType,
+            config: cloneDeep(
+              (this.realPlugin.settings as any)[newRemoteServiceType] ?? {}
+            ),
+          } as RemoteServiceConfig;
+          this.realPlugin.settings.remoteServices?.push(newRemoteService);
+          activeTarget.remoteServiceId = newServiceId;
+          assignDefaultTargetScopeInplace(
+            activeTarget,
+            newRemoteServiceType,
+            this.app,
+            activeTarget.id
+          );
+          await this.realPlugin.saveSettings();
+          new Notice(t("settings_remoteservice_created"));
+          this.display();
+        });
       });
 
     //////////////////////////////////////////////////
