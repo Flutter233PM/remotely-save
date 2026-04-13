@@ -145,6 +145,42 @@ export interface ProfilerConfig {
   recordSize?: boolean;
 }
 
+export interface RemoteServiceConfigByServiceType {
+  s3: S3Config;
+  webdav: WebdavConfig;
+  dropbox: DropboxConfig;
+  onedrive: OnedriveConfig;
+  onedrivefull: OnedriveFullConfig;
+  webdis: WebdisConfig;
+  googledrive: GoogleDriveConfig;
+  box: BoxConfig;
+  pcloud: PCloudConfig;
+  yandexdisk: YandexDiskConfig;
+  koofr: KoofrConfig;
+  azureblobstorage: AzureBlobStorageConfig;
+}
+
+export type RemoteServiceConfig = {
+  [K in SUPPORTED_SERVICES_TYPE]: {
+    id: string;
+    serviceType: K;
+    config: RemoteServiceConfigByServiceType[K];
+    label?: string;
+  };
+}[SUPPORTED_SERVICES_TYPE];
+
+export interface SyncTargetConfig {
+  id: string;
+  remoteServiceId: string;
+  enabled?: boolean;
+  label?: string;
+  remoteBaseDir?: string;
+  remotePrefix?: string;
+  deltaLink?: string;
+  ignorePaths?: string[];
+  onlyAllowPaths?: string[];
+}
+
 export interface RemotelySavePluginSettings {
   s3: S3Config;
   webdav: WebdavConfig;
@@ -158,6 +194,8 @@ export interface RemotelySavePluginSettings {
   yandexdisk: YandexDiskConfig;
   koofr: KoofrConfig;
   azureblobstorage: AzureBlobStorageConfig;
+  remoteServices?: RemoteServiceConfig[];
+  syncTargets?: SyncTargetConfig[];
 
   password: string;
   serviceType: SUPPORTED_SERVICES_TYPE;

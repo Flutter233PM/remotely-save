@@ -111,6 +111,15 @@ import { changeMobileStatusBar } from "./misc";
 import { DEFAULT_PROFILER_CONFIG, Profiler } from "./profiler";
 import { RemotelySaveSettingTab } from "./settings";
 import { SyncAlgoV3Modal } from "./syncAlgoV3Notice";
+import {
+  applyLegacySettingsToPrimaryTargetInplace,
+  applyPrimaryTargetToLegacySettingsInplace,
+  ensureRemoteServicesAndSyncTargetsInplace,
+  getEnabledSyncTargets,
+  getPrimarySyncTarget,
+  getProfileIDByTarget,
+  projectSettingsForTarget,
+} from "./syncConfig";
 
 const DEFAULT_SETTINGS: RemotelySavePluginSettings = {
   s3: DEFAULT_S3_CONFIG,
@@ -155,6 +164,9 @@ const DEFAULT_SETTINGS: RemotelySavePluginSettings = {
   profiler: DEFAULT_PROFILER_CONFIG,
   pro: DEFAULT_PRO_CONFIG,
 };
+
+ensureRemoteServicesAndSyncTargetsInplace(DEFAULT_SETTINGS);
+applyLegacySettingsToPrimaryTargetInplace(DEFAULT_SETTINGS);
 
 interface OAuth2Info {
   verifier?: string;
@@ -232,39 +244,9 @@ export default class RemotelySavePlugin extends Plugin {
   appContainerObserver?: MutationObserver;
 
   async syncRun(triggerSource: SyncTriggerSourceType = "manual") {
-    let profiler: Profiler | undefined = undefined;
-    if (this.settings.profiler?.enable ?? false) {
-      profiler = new Profiler(
-        undefined,
-        this.settings.profiler?.enablePrinting ?? false,
-        this.settings.profiler?.recordSize ?? false
-      );
-    }
-    const fsLocal = new FakeFsLocal(
-      this.app.vault,
-      this.settings.syncConfigDir ?? false,
-      this.settings.syncBookmarks ?? false,
-      this.app.vault.configDir,
-      this.manifest.id,
-      profiler,
-      this.settings.deleteToWhere ?? "system"
-    );
-    const fsRemote = getClient(
-      this.settings,
-      this.app.vault.getName(),
-      async () => await this.saveSettings()
-    );
-    const fsEncrypt = new FakeFsEncrypt(
-      fsRemote,
-      this.settings.password ?? "",
-      this.settings.encryptionMethod ?? "rclone-base64"
-    );
-
     const t = (x: TransItemType, vars?: any) => {
       return this.i18n.t(x, vars);
     };
-
-    const profileID = this.getCurrProfileID();
 
     const getProtectError = (
       protectModifyPercentage: number,
@@ -274,13 +256,12 @@ export default class RemotelySavePlugin extends Plugin {
       const percent = ((100 * realModifyDeleteCount) / allFilesCount).toFixed(
         1
       );
-      const res = t("syncrun_abort_protectmodifypercentage", {
+      return t("syncrun_abort_protectmodifypercentage", {
         protectModifyPercentage,
         realModifyDeleteCount,
         allFilesCount,
         percent,
       });
-      return res;
     };
 
     const getNotice = (
@@ -291,180 +272,6 @@ export default class RemotelySavePlugin extends Plugin {
       if (s === "manual" || s === "dry") {
         new Notice(msg, timeout);
       }
-    };
-
-    const notifyFunc = async (s: SyncTriggerSourceType, step: number) => {
-      switch (step) {
-        case 0:
-          if (s === "dry") {
-            if (this.settings.currLogLevel === "info") {
-              getNotice(s, t("syncrun_shortstep0"));
-            } else {
-              getNotice(s, t("syncrun_step0"));
-            }
-          }
-
-          break;
-
-        case 1:
-          if (this.settings.currLogLevel === "info") {
-            getNotice(
-              s,
-              t("syncrun_shortstep1", {
-                serviceType: this.settings.serviceType,
-              })
-            );
-          } else {
-            getNotice(
-              s,
-              t("syncrun_step1", {
-                serviceType: this.settings.serviceType,
-              })
-            );
-          }
-          break;
-
-        case 2:
-          if (this.settings.currLogLevel === "info") {
-            // pass
-          } else {
-            getNotice(s, t("syncrun_step2"));
-          }
-          break;
-
-        case 3:
-          if (this.settings.currLogLevel === "info") {
-            // pass
-          } else {
-            getNotice(s, t("syncrun_step3"));
-          }
-          break;
-
-        case 4:
-          if (this.settings.currLogLevel === "info") {
-            // pass
-          } else {
-            getNotice(s, t("syncrun_step4"));
-          }
-          break;
-
-        case 5:
-          if (this.settings.currLogLevel === "info") {
-            // pass
-          } else {
-            getNotice(s, t("syncrun_step5"));
-          }
-          break;
-
-        case 6:
-          if (this.settings.currLogLevel === "info") {
-            // pass
-          } else {
-            getNotice(s, t("syncrun_step6"));
-          }
-          break;
-
-        case 7:
-          if (s === "dry") {
-            if (this.settings.currLogLevel === "info") {
-              getNotice(s, t("syncrun_shortstep2skip"));
-            } else {
-              getNotice(s, t("syncrun_step7skip"));
-            }
-          } else {
-            if (this.settings.currLogLevel === "info") {
-              // pass
-            } else {
-              getNotice(s, t("syncrun_step7"));
-            }
-          }
-          break;
-
-        case 8:
-          if (this.settings.currLogLevel === "info") {
-            getNotice(s, t("syncrun_shortstep2"));
-          } else {
-            getNotice(s, t("syncrun_step8"));
-          }
-          break;
-
-        default:
-          throw Error(`unknown step=${step} for showing notice`);
-      }
-    };
-
-    const errNotifyFunc = async (s: SyncTriggerSourceType, error: Error) => {
-      console.error(error);
-      if (error instanceof AggregateError) {
-        for (const e of error.errors) {
-          getNotice(s, e.message, 10 * 1000);
-        }
-      } else {
-        getNotice(s, error?.message ?? "error while sync", 10 * 1000);
-      }
-    };
-
-    const ribboonFunc = async (s: SyncTriggerSourceType, step: number) => {
-      if (step === 1) {
-        if (this.syncRibbon !== undefined) {
-          setIcon(this.syncRibbon, iconNameSyncRunning);
-          this.syncRibbon.setAttribute(
-            "aria-label",
-            t("syncrun_syncingribbon", {
-              pluginName: this.manifest.name,
-              triggerSource: s,
-            })
-          );
-        }
-      } else if (step === 8) {
-        // last step
-        if (this.syncRibbon !== undefined) {
-          setIcon(this.syncRibbon, iconNameSyncWait);
-          const originLabel = `${this.manifest.name}`;
-          this.syncRibbon.setAttribute("aria-label", originLabel);
-        }
-      }
-    };
-
-    const statusBarFunc = async (
-      s: SyncTriggerSourceType,
-      step: number,
-      everythingOk: boolean
-    ) => {
-      if (step === 1) {
-        // change status to "syncing..." on statusbar
-        this.updateLastSyncMsg(s, "syncing", -1, -1);
-      } else if (step === 8 && everythingOk) {
-        const ts = Date.now();
-        await upsertLastSuccessSyncTimeByVault(this.db, this.vaultRandomID, ts);
-        this.updateLastSyncMsg(s, "not_syncing", ts, null); // hack: 'not_syncing'
-      } else if (!everythingOk) {
-        const ts = Date.now();
-        await upsertLastFailedSyncTimeByVault(this.db, this.vaultRandomID, ts);
-        this.updateLastSyncMsg(s, "not_syncing", null, ts);
-      }
-    };
-
-    const markIsSyncingFunc = async (isSyncing: boolean) => {
-      this.isSyncing = isSyncing;
-    };
-
-    const callbackSyncProcess = async (
-      s: SyncTriggerSourceType,
-      realCounter: number,
-      realTotalCount: number,
-      pathName: string,
-      decision: string
-    ) => {
-      this.setCurrSyncMsg(
-        t,
-        s,
-        realCounter,
-        realTotalCount,
-        pathName,
-        decision,
-        triggerSource
-      );
     };
 
     if (this.isSyncing) {
@@ -483,34 +290,255 @@ export default class RemotelySavePlugin extends Plugin {
       return;
     }
 
-    const configSaver = async () => await this.saveSettings();
+    const enabledTargets = getEnabledSyncTargets(this.settings);
+    if (enabledTargets.length === 0) {
+      getNotice(
+        triggerSource,
+        `${this.manifest.name}: no enabled sync target found`
+      );
+      return;
+    }
 
-    await syncer(
-      fsLocal,
-      fsRemote,
-      fsEncrypt,
-      profiler,
-      this.db,
-      triggerSource,
-      profileID,
-      this.vaultRandomID,
-      this.app.vault.configDir,
-      this.settings,
-      this.manifest.version,
-      configSaver,
-      getProtectError,
-      markIsSyncingFunc,
-      notifyFunc,
-      errNotifyFunc,
-      ribboonFunc,
-      statusBarFunc,
-      callbackSyncProcess
-    );
+    this.isSyncing = true;
+    try {
+      for (
+        let targetIndex = 0;
+        targetIndex < enabledTargets.length;
+        targetIndex++
+      ) {
+        const enabledTarget = enabledTargets[targetIndex];
+        const targetRuntime = projectSettingsForTarget(
+          this.settings,
+          enabledTarget.target.id
+        );
+        const runtimeSettings = targetRuntime.settings;
+        const profileID = getProfileIDByTarget(
+          targetRuntime.target,
+          runtimeSettings.serviceType
+        );
 
-    fsEncrypt.closeResources();
-    (profiler as Profiler | undefined)?.clear();
+        let profiler: Profiler | undefined = undefined;
+        if (runtimeSettings.profiler?.enable ?? false) {
+          profiler = new Profiler(
+            undefined,
+            runtimeSettings.profiler?.enablePrinting ?? false,
+            runtimeSettings.profiler?.recordSize ?? false
+          );
+        }
 
-    this.syncEvent?.trigger("SYNC_DONE");
+        const fsLocal = new FakeFsLocal(
+          this.app.vault,
+          runtimeSettings.syncConfigDir ?? false,
+          runtimeSettings.syncBookmarks ?? false,
+          this.app.vault.configDir,
+          this.manifest.id,
+          profiler,
+          runtimeSettings.deleteToWhere ?? "system"
+        );
+        const configSaver = async () => {
+          targetRuntime.saveBack();
+          await this.saveSettings();
+        };
+        const fsRemote = getClient(
+          runtimeSettings,
+          this.app.vault.getName(),
+          configSaver
+        );
+        const fsEncrypt = new FakeFsEncrypt(
+          fsRemote,
+          runtimeSettings.password ?? "",
+          runtimeSettings.encryptionMethod ?? "rclone-base64"
+        );
+
+        const notifyFunc = async (s: SyncTriggerSourceType, step: number) => {
+          switch (step) {
+            case 0:
+              if (s === "dry") {
+                if (runtimeSettings.currLogLevel === "info") {
+                  getNotice(s, t("syncrun_shortstep0"));
+                } else {
+                  getNotice(s, t("syncrun_step0"));
+                }
+              }
+              break;
+            case 1:
+              if (runtimeSettings.currLogLevel === "info") {
+                getNotice(
+                  s,
+                  t("syncrun_shortstep1", {
+                    serviceType: runtimeSettings.serviceType,
+                  })
+                );
+              } else {
+                getNotice(
+                  s,
+                  t("syncrun_step1", {
+                    serviceType: runtimeSettings.serviceType,
+                  })
+                );
+              }
+              break;
+            case 2:
+              if (runtimeSettings.currLogLevel !== "info") {
+                getNotice(s, t("syncrun_step2"));
+              }
+              break;
+            case 3:
+              if (runtimeSettings.currLogLevel !== "info") {
+                getNotice(s, t("syncrun_step3"));
+              }
+              break;
+            case 4:
+              if (runtimeSettings.currLogLevel !== "info") {
+                getNotice(s, t("syncrun_step4"));
+              }
+              break;
+            case 5:
+              if (runtimeSettings.currLogLevel !== "info") {
+                getNotice(s, t("syncrun_step5"));
+              }
+              break;
+            case 6:
+              if (runtimeSettings.currLogLevel !== "info") {
+                getNotice(s, t("syncrun_step6"));
+              }
+              break;
+            case 7:
+              if (s === "dry") {
+                if (runtimeSettings.currLogLevel === "info") {
+                  getNotice(s, t("syncrun_shortstep2skip"));
+                } else {
+                  getNotice(s, t("syncrun_step7skip"));
+                }
+              } else if (runtimeSettings.currLogLevel !== "info") {
+                getNotice(s, t("syncrun_step7"));
+              }
+              break;
+            case 8:
+              if (runtimeSettings.currLogLevel === "info") {
+                getNotice(s, t("syncrun_shortstep2"));
+              } else {
+                getNotice(s, t("syncrun_step8"));
+              }
+              break;
+            default:
+              throw Error(`unknown step=${step} for showing notice`);
+          }
+        };
+
+        const errNotifyFunc = async (
+          s: SyncTriggerSourceType,
+          error: Error
+        ) => {
+          console.error(error);
+          if (error instanceof AggregateError) {
+            for (const e of error.errors) {
+              getNotice(s, e.message, 10 * 1000);
+            }
+          } else {
+            getNotice(s, error?.message ?? "error while sync", 10 * 1000);
+          }
+        };
+
+        const ribboonFunc = async (s: SyncTriggerSourceType, step: number) => {
+          if (step === 1) {
+            if (this.syncRibbon !== undefined) {
+              setIcon(this.syncRibbon, iconNameSyncRunning);
+              this.syncRibbon.setAttribute(
+                "aria-label",
+                t("syncrun_syncingribbon", {
+                  pluginName: this.manifest.name,
+                  triggerSource: s,
+                })
+              );
+            }
+          } else if (step === 8) {
+            if (this.syncRibbon !== undefined) {
+              setIcon(this.syncRibbon, iconNameSyncWait);
+              const originLabel = `${this.manifest.name}`;
+              this.syncRibbon.setAttribute("aria-label", originLabel);
+            }
+          }
+        };
+
+        const statusBarFunc = async (
+          s: SyncTriggerSourceType,
+          step: number,
+          everythingOk: boolean
+        ) => {
+          if (step === 1) {
+            this.updateLastSyncMsg(s, "syncing", -1, -1);
+          } else if (step === 8 && everythingOk) {
+            const ts = Date.now();
+            await upsertLastSuccessSyncTimeByVault(
+              this.db,
+              this.vaultRandomID,
+              ts
+            );
+            this.updateLastSyncMsg(s, "not_syncing", ts, null);
+          } else if (!everythingOk) {
+            const ts = Date.now();
+            await upsertLastFailedSyncTimeByVault(
+              this.db,
+              this.vaultRandomID,
+              ts
+            );
+            this.updateLastSyncMsg(s, "not_syncing", null, ts);
+          }
+        };
+
+        const markIsSyncingFunc = async (_isSyncing: boolean) => {};
+
+        const callbackSyncProcess = async (
+          s: SyncTriggerSourceType,
+          realCounter: number,
+          realTotalCount: number,
+          pathName: string,
+          decision: string
+        ) => {
+          this.setCurrSyncMsg(
+            t,
+            s,
+            realCounter,
+            realTotalCount,
+            pathName,
+            decision,
+            triggerSource
+          );
+        };
+
+        try {
+          await syncer(
+            fsLocal,
+            fsRemote,
+            fsEncrypt,
+            profiler,
+            this.db,
+            triggerSource,
+            profileID,
+            this.vaultRandomID,
+            this.app.vault.configDir,
+            runtimeSettings,
+            this.manifest.version,
+            configSaver,
+            getProtectError,
+            markIsSyncingFunc,
+            notifyFunc,
+            errNotifyFunc,
+            ribboonFunc,
+            statusBarFunc,
+            callbackSyncProcess
+          );
+          targetRuntime.saveBack();
+        } finally {
+          fsEncrypt.closeResources();
+          (profiler as Profiler | undefined)?.clear();
+        }
+      }
+    } finally {
+      this.isSyncing = false;
+      this.syncEvent?.trigger("SYNC_DONE");
+    }
   }
 
   async onload() {
@@ -1336,11 +1364,19 @@ export default class RemotelySavePlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign(
-      {},
-      cloneDeep(DEFAULT_SETTINGS),
-      messyConfigToNormal(await this.loadData())
-    );
+    const loadedData = messyConfigToNormal(await this.loadData()) ?? {};
+    const hasStructuredConfig =
+      (Array.isArray((loadedData as any).remoteServices) &&
+        (loadedData as any).remoteServices.length > 0) ||
+      (Array.isArray((loadedData as any).syncTargets) &&
+        (loadedData as any).syncTargets.length > 0);
+
+    this.settings = Object.assign({}, cloneDeep(DEFAULT_SETTINGS), loadedData);
+    if (hasStructuredConfig) {
+      applyPrimaryTargetToLegacySettingsInplace(this.settings);
+    } else {
+      applyLegacySettingsToPrimaryTargetInplace(this.settings);
+    }
 
     if (this.settings.syncBookmarks === undefined) {
       this.settings.syncBookmarks = false;
@@ -1506,11 +1542,15 @@ export default class RemotelySavePlugin extends Plugin {
     if (this.settings.azureblobstorage === undefined) {
       this.settings.azureblobstorage = DEFAULT_AZUREBLOBSTORAGE_CONFIG;
     }
+    ensureRemoteServicesAndSyncTargetsInplace(this.settings);
+    applyLegacySettingsToPrimaryTargetInplace(this.settings);
 
     await this.saveSettings();
   }
 
   async saveSettings() {
+    ensureRemoteServicesAndSyncTargetsInplace(this.settings);
+    applyLegacySettingsToPrimaryTargetInplace(this.settings);
     if (this.settings.obfuscateSettingFile) {
       await this.saveData(normalConfigToMessy(this.settings));
     } else {
@@ -1522,11 +1562,14 @@ export default class RemotelySavePlugin extends Plugin {
    * After 202403 the data should be of profile based.
    */
   getCurrProfileID() {
-    if (this.settings.serviceType !== undefined) {
-      return `${this.settings.serviceType}-default-1`;
-    } else {
-      throw Error("unknown serviceType in the setting!");
+    const primaryTarget = getPrimarySyncTarget(this.settings);
+    if (
+      primaryTarget !== undefined &&
+      this.settings.serviceType !== undefined
+    ) {
+      return getProfileIDByTarget(primaryTarget, this.settings.serviceType);
     }
+    throw Error("unknown serviceType in the setting!");
   }
 
   async checkIfOauthExpires() {
@@ -2041,8 +2084,9 @@ export default class RemotelySavePlugin extends Plugin {
     const pluginConfigDir =
       this.manifest.dir ||
       `${this.app.vault.configDir}/plugins/${this.manifest.dir}`;
-    const pluginConfigDirExists =
-      await this.app.vault.adapter.exists(pluginConfigDir);
+    const pluginConfigDirExists = await this.app.vault.adapter.exists(
+      pluginConfigDir
+    );
     if (!pluginConfigDirExists) {
       // what happened?
       return;
