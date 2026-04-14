@@ -66,6 +66,9 @@ module.exports = {
     new webpack.ProvidePlugin({
       process: "process/browser",
     }),
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1,
+    }),
   ],
   module: {
     rules: [
@@ -141,6 +144,8 @@ module.exports = {
     obsidian: "commonjs2 obsidian",
   },
   optimization: {
+    splitChunks: false,
+    runtimeChunk: false,
     minimize: true,
     minimizer: [new TerserPlugin({ extractComments: false })],
   },

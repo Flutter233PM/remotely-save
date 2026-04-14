@@ -983,6 +983,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     const activeTarget = targetProjection.target;
     const activeRemoteService = targetProjection.remoteService;
     const viewSettings = targetProjection.settings;
+    const activeServiceType = viewSettings.serviceType;
     const saveProjectedSettings = async () => {
       targetProjection.saveBack();
       const preservedStructuredFields = {
@@ -1223,7 +1224,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const s3Div = containerEl.createEl("div", { cls: "s3-hide" });
-    s3Div.toggleClass("s3-hide", this.plugin.settings.serviceType !== "s3");
+    s3Div.toggleClass("s3-hide", activeServiceType !== "s3");
     s3Div.createEl("h2", { text: t("settings_s3") });
 
     const s3LongDescDiv = s3Div.createEl("div", { cls: "settings-long-desc" });
@@ -1521,10 +1522,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const dropboxDiv = containerEl.createEl("div", { cls: "dropbox-hide" });
-    dropboxDiv.toggleClass(
-      "dropbox-hide",
-      this.plugin.settings.serviceType !== "dropbox"
-    );
+    dropboxDiv.toggleClass("dropbox-hide", activeServiceType !== "dropbox");
     dropboxDiv.createEl("h2", { text: t("settings_dropbox") });
 
     const dropboxLongDescDiv = dropboxDiv.createEl("div", {
@@ -1701,10 +1699,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const onedriveDiv = containerEl.createEl("div", { cls: "onedrive-hide" });
-    onedriveDiv.toggleClass(
-      "onedrive-hide",
-      this.plugin.settings.serviceType !== "onedrive"
-    );
+    onedriveDiv.toggleClass("onedrive-hide", activeServiceType !== "onedrive");
     onedriveDiv.createEl("h2", { text: t("settings_onedrive") });
     const onedriveLongDescDiv = onedriveDiv.createEl("div", {
       cls: "settings-long-desc",
@@ -1858,10 +1853,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const webdavDiv = containerEl.createEl("div", { cls: "webdav-hide" });
-    webdavDiv.toggleClass(
-      "webdav-hide",
-      this.plugin.settings.serviceType !== "webdav"
-    );
+    webdavDiv.toggleClass("webdav-hide", activeServiceType !== "webdav");
 
     webdavDiv.createEl("h2", { text: t("settings_webdav") });
 
@@ -2087,10 +2079,7 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const webdisDiv = containerEl.createEl("div", { cls: "webdis-hide" });
-    webdisDiv.toggleClass(
-      "webdis-hide",
-      this.plugin.settings.serviceType !== "webdis"
-    );
+    webdisDiv.toggleClass("webdis-hide", activeServiceType !== "webdis");
 
     webdisDiv.createEl("h2", { text: t("settings_webdis") });
 
