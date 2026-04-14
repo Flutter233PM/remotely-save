@@ -1108,6 +1108,116 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     const serviceChooserDiv = containerEl.createDiv();
     serviceChooserDiv.createEl("h2", { text: t("settings_remoteservice") });
 
+    let selectedRemoteServiceId = activeTarget.remoteServiceId;
+    new Setting(serviceChooserDiv)
+      .setName(t("settings_remoteservice_current"))
+      .setDesc(t("settings_remoteservice_current_desc"))
+      .addDropdown((dropdown) => {
+        (this.realPlugin.settings.remoteServices ?? []).forEach(
+          (remoteService) => {
+            dropdown.addOption(
+              remoteService.id,
+              getRemoteServiceLabel(remoteService, t)
+            );
+          }
+        );
+        dropdown
+          .setValue(activeTarget.remoteServiceId)
+          .onChange(async (val) => {
+            selectedRemoteServiceId = val;
+            const selectedRemoteService = getRemoteServiceById(
+              this.realPlugin.settings,
+              selectedRemoteServiceId
+            );
+            if (selectedRemoteService === undefined) {
+              return;
+            }
+            const serviceTypeChanged =
+              selectedRemoteService.serviceType !==
+              activeRemoteService.serviceType;
+            activeTarget.remoteServiceId = selectedRemoteService.id;
+            if (serviceTypeChanged) {
+              assignDefaultTargetScopeInplace(
+                activeTarget,
+                selectedRemoteService.serviceType,
+                this.app,
+                activeTarget.id
+              );
+            }
+            await this.realPlugin.saveSettings();
+            this.display();
+          });
+      });
+
+    new Setting(serviceChooserDiv)
+      .setName(t("settings_remoteservice_create"))
+      .setDesc(t("settings_remoteservice_create_desc"))
+      .addDropdown((dropdown) => {
+        dropdown.addOption("s3", t("settings_chooseservice_s3"));
+        dropdown.addOption("dropbox", t("settings_chooseservice_dropbox"));
+        dropdown.addOption("webdav", t("settings_chooseservice_webdav"));
+        dropdown.addOption("onedrive", t("settings_chooseservice_onedrive"));
+        dropdown.addOption("webdis", t("settings_chooseservice_webdis"));
+        dropdown.addOption("separator line", "-----");
+        (dropdown.selectEl.lastChild as HTMLElement).setAttribute(
+          "disabled",
+          "disabled"
+        );
+        dropdown.addOption(
+          "googledrive",
+          t("settings_chooseservice_googledrive")
+        );
+        dropdown.addOption(
+          "onedrivefull",
+          t("settings_chooseservice_onedrivefull")
+        );
+        dropdown.addOption("box", t("settings_chooseservice_box"));
+        dropdown.addOption("pcloud", t("settings_chooseservice_pcloud"));
+        dropdown.addOption(
+          "yandexdisk",
+          t("settings_chooseservice_yandexdisk")
+        );
+        dropdown.addOption("koofr", t("settings_chooseservice_koofr"));
+        dropdown.addOption(
+          "azureblobstorage",
+          t("settings_chooseservice_azureblobstorage")
+        );
+        dropdown.setValue(newRemoteServiceType).onChange((val) => {
+          newRemoteServiceType = val as SUPPORTED_SERVICES_TYPE;
+        });
+      })
+      .addButton((button) => {
+        button.setButtonText(t("settings_remoteservice_create_button"));
+        button.onClick(async () => {
+          const newServiceId = getNextStructuredId(
+            "service",
+            (this.realPlugin.settings.remoteServices ?? []).map(
+              (remoteService) => {
+                return remoteService.id;
+              }
+            )
+          );
+          const newRemoteService = {
+            id: newServiceId,
+            serviceType: newRemoteServiceType,
+            config: cloneDeep(
+              (this.realPlugin.settings as any)[newRemoteServiceType] ?? {}
+            ),
+          } as RemoteServiceConfig;
+          this.realPlugin.settings.remoteServices?.push(newRemoteService);
+          activeTarget.remoteServiceId = newServiceId;
+          assignDefaultTargetScopeInplace(
+            activeTarget,
+            newRemoteServiceType,
+            this.app,
+            activeTarget.id
+          );
+          await this.realPlugin.saveSettings();
+          new Notice(t("settings_remoteservice_created"));
+          this.display();
+        });
+      });
+
     //////////////////////////////////////////////////
     // below for s3
     //////////////////////////////////////////////////
@@ -2098,211 +2208,138 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
       });
 
     //////////////////////////////////////////////////
-    // below for Onedrive (Full)
+    // below for optional service sections
     //////////////////////////////////////////////////
 
-    const {
-      onedriveFullDiv,
-      onedriveFullAllowedToUsedDiv,
-      onedriveFullNotShowUpHintSetting,
-    } = generateOnedriveFullSettingsPart(
-      containerEl,
-      t,
-      this.app,
-      this.plugin,
-      () => this.plugin.saveSettings()
+    const createOptionalServiceFallback = (hiddenClass: string) => {
+      const allowedToUsedDiv = containerEl.createDiv();
+      allowedToUsedDiv.addClass(hiddenClass);
+      const notShowUpHintSetting = new Setting(allowedToUsedDiv);
+      notShowUpHintSetting.settingEl.addClass(hiddenClass);
+      return {
+        allowedToUsedDiv,
+        notShowUpHintSetting,
+      };
+    };
+
+    const onedriveFullFallback = createOptionalServiceFallback(
+      "onedrivefull-allow-to-use-hide"
     );
+    let onedriveFullAllowedToUsedDiv = onedriveFullFallback.allowedToUsedDiv;
+    let onedriveFullNotShowUpHintSetting =
+      onedriveFullFallback.notShowUpHintSetting;
+    try {
+      ({ onedriveFullAllowedToUsedDiv, onedriveFullNotShowUpHintSetting } =
+        generateOnedriveFullSettingsPart(
+          containerEl,
+          t,
+          this.app,
+          this.plugin,
+          () => this.plugin.saveSettings()
+        ));
+    } catch (error) {
+      console.error("failed to render onedrivefull settings", error);
+    }
 
-    //////////////////////////////////////////////////
-    // below for googledrive
-    //////////////////////////////////////////////////
-
-    const {
-      googleDriveDiv,
-      googleDriveAllowedToUsedDiv,
-      googleDriveNotShowUpHintSetting,
-    } = generateGoogleDriveSettingsPart(
-      containerEl,
-      t,
-      this.app,
-      this.plugin,
-      () => this.plugin.saveSettings()
+    const googleDriveFallback = createOptionalServiceFallback(
+      "googledrive-allow-to-use-hide"
     );
+    let googleDriveAllowedToUsedDiv = googleDriveFallback.allowedToUsedDiv;
+    let googleDriveNotShowUpHintSetting =
+      googleDriveFallback.notShowUpHintSetting;
+    try {
+      ({ googleDriveAllowedToUsedDiv, googleDriveNotShowUpHintSetting } =
+        generateGoogleDriveSettingsPart(
+          containerEl,
+          t,
+          this.app,
+          this.plugin,
+          () => this.plugin.saveSettings()
+        ));
+    } catch (error) {
+      console.error("failed to render googledrive settings", error);
+    }
 
-    //////////////////////////////////////////////////
-    // below for box
-    //////////////////////////////////////////////////
+    const boxFallback = createOptionalServiceFallback("box-allow-to-use-hide");
+    let boxAllowedToUsedDiv = boxFallback.allowedToUsedDiv;
+    let boxNotShowUpHintSetting = boxFallback.notShowUpHintSetting;
+    try {
+      ({ boxAllowedToUsedDiv, boxNotShowUpHintSetting } =
+        generateBoxSettingsPart(containerEl, t, this.app, this.plugin, () =>
+          this.plugin.saveSettings()
+        ));
+    } catch (error) {
+      console.error("failed to render box settings", error);
+    }
 
-    const { boxDiv, boxAllowedToUsedDiv, boxNotShowUpHintSetting } =
-      generateBoxSettingsPart(containerEl, t, this.app, this.plugin, () =>
-        this.plugin.saveSettings()
-      );
-
-    //////////////////////////////////////////////////
-    // below for pcloud
-    //////////////////////////////////////////////////
-
-    const { pCloudDiv, pCloudAllowedToUsedDiv, pCloudNotShowUpHintSetting } =
-      generatePCloudSettingsPart(containerEl, t, this.app, this.plugin, () =>
-        this.plugin.saveSettings()
-      );
-
-    //////////////////////////////////////////////////
-    // below for yandexdisk
-    //////////////////////////////////////////////////
-
-    const {
-      yandexDiskDiv,
-      yandexDiskAllowedToUsedDiv,
-      yandexDiskNotShowUpHintSetting,
-    } = generateYandexDiskSettingsPart(
-      containerEl,
-      t,
-      this.app,
-      this.plugin,
-      () => this.plugin.saveSettings()
+    const pCloudFallback = createOptionalServiceFallback(
+      "pcloud-allow-to-use-hide"
     );
+    let pCloudAllowedToUsedDiv = pCloudFallback.allowedToUsedDiv;
+    let pCloudNotShowUpHintSetting = pCloudFallback.notShowUpHintSetting;
+    try {
+      ({ pCloudAllowedToUsedDiv, pCloudNotShowUpHintSetting } =
+        generatePCloudSettingsPart(containerEl, t, this.app, this.plugin, () =>
+          this.plugin.saveSettings()
+        ));
+    } catch (error) {
+      console.error("failed to render pcloud settings", error);
+    }
 
-    //////////////////////////////////////////////////
-    // below for koofr
-    //////////////////////////////////////////////////
-
-    const { koofrDiv, koofrAllowedToUsedDiv, koofrNotShowUpHintSetting } =
-      generateKoofrSettingsPart(containerEl, t, this.app, this.plugin, () =>
-        this.plugin.saveSettings()
-      );
-
-    //////////////////////////////////////////////////
-    // below for Azure Blob Storage
-    //////////////////////////////////////////////////
-
-    const {
-      azureBlobStorageDiv,
-      azureBlobStorageAllowedToUsedDiv,
-      azureBlobStorageNotShowUpHintSetting,
-    } = generateAzureBlobStorageSettingsPart(
-      containerEl,
-      t,
-      this.app,
-      this.plugin,
-      () => this.plugin.saveSettings()
+    const yandexDiskFallback = createOptionalServiceFallback(
+      "yandexdisk-allow-to-use-hide"
     );
+    let yandexDiskAllowedToUsedDiv = yandexDiskFallback.allowedToUsedDiv;
+    let yandexDiskNotShowUpHintSetting =
+      yandexDiskFallback.notShowUpHintSetting;
+    try {
+      ({ yandexDiskAllowedToUsedDiv, yandexDiskNotShowUpHintSetting } =
+        generateYandexDiskSettingsPart(
+          containerEl,
+          t,
+          this.app,
+          this.plugin,
+          () => this.plugin.saveSettings()
+        ));
+    } catch (error) {
+      console.error("failed to render yandexdisk settings", error);
+    }
 
-    //////////////////////////////////////////////////
-    // below for general chooser (part 2/2)
-    //////////////////////////////////////////////////
+    const koofrFallback = createOptionalServiceFallback(
+      "koofr-allow-to-use-hide"
+    );
+    let koofrAllowedToUsedDiv = koofrFallback.allowedToUsedDiv;
+    let koofrNotShowUpHintSetting = koofrFallback.notShowUpHintSetting;
+    try {
+      ({ koofrAllowedToUsedDiv, koofrNotShowUpHintSetting } =
+        generateKoofrSettingsPart(containerEl, t, this.app, this.plugin, () =>
+          this.plugin.saveSettings()
+        ));
+    } catch (error) {
+      console.error("failed to render koofr settings", error);
+    }
 
-    // we need to create chooser
-    // after all service-div-s being created
-    let selectedRemoteServiceId = activeTarget.remoteServiceId;
-    new Setting(serviceChooserDiv)
-      .setName(t("settings_remoteservice_current"))
-      .setDesc(t("settings_remoteservice_current_desc"))
-      .addDropdown((dropdown) => {
-        (this.realPlugin.settings.remoteServices ?? []).forEach(
-          (remoteService) => {
-            dropdown.addOption(
-              remoteService.id,
-              getRemoteServiceLabel(remoteService, t)
-            );
-          }
-        );
-        dropdown
-          .setValue(activeTarget.remoteServiceId)
-          .onChange(async (val) => {
-            selectedRemoteServiceId = val;
-            const selectedRemoteService = getRemoteServiceById(
-              this.realPlugin.settings,
-              selectedRemoteServiceId
-            );
-            if (selectedRemoteService === undefined) {
-              return;
-            }
-            const serviceTypeChanged =
-              selectedRemoteService.serviceType !==
-              activeRemoteService.serviceType;
-            activeTarget.remoteServiceId = selectedRemoteService.id;
-            if (serviceTypeChanged) {
-              assignDefaultTargetScopeInplace(
-                activeTarget,
-                selectedRemoteService.serviceType,
-                this.app,
-                activeTarget.id
-              );
-            }
-            await this.realPlugin.saveSettings();
-            this.display();
-          });
-      });
-
-    new Setting(serviceChooserDiv)
-      .setName(t("settings_remoteservice_create"))
-      .setDesc(t("settings_remoteservice_create_desc"))
-      .addDropdown((dropdown) => {
-        dropdown.addOption("s3", t("settings_chooseservice_s3"));
-        dropdown.addOption("dropbox", t("settings_chooseservice_dropbox"));
-        dropdown.addOption("webdav", t("settings_chooseservice_webdav"));
-        dropdown.addOption("onedrive", t("settings_chooseservice_onedrive"));
-        dropdown.addOption("webdis", t("settings_chooseservice_webdis"));
-        dropdown.addOption("separator line", "-----");
-        (dropdown.selectEl.lastChild as HTMLElement).setAttribute(
-          "disabled",
-          "disabled"
-        );
-        dropdown.addOption(
-          "googledrive",
-          t("settings_chooseservice_googledrive")
-        );
-        dropdown.addOption(
-          "onedrivefull",
-          t("settings_chooseservice_onedrivefull")
-        );
-        dropdown.addOption("box", t("settings_chooseservice_box"));
-        dropdown.addOption("pcloud", t("settings_chooseservice_pcloud"));
-        dropdown.addOption(
-          "yandexdisk",
-          t("settings_chooseservice_yandexdisk")
-        );
-        dropdown.addOption("koofr", t("settings_chooseservice_koofr"));
-        dropdown.addOption(
-          "azureblobstorage",
-          t("settings_chooseservice_azureblobstorage")
-        );
-        dropdown.setValue(newRemoteServiceType).onChange((val) => {
-          newRemoteServiceType = val as SUPPORTED_SERVICES_TYPE;
-        });
-      })
-      .addButton((button) => {
-        button.setButtonText(t("settings_remoteservice_create_button"));
-        button.onClick(async () => {
-          const newServiceId = getNextStructuredId(
-            "service",
-            (this.realPlugin.settings.remoteServices ?? []).map(
-              (remoteService) => {
-                return remoteService.id;
-              }
-            )
-          );
-          const newRemoteService = {
-            id: newServiceId,
-            serviceType: newRemoteServiceType,
-            config: cloneDeep(
-              (this.realPlugin.settings as any)[newRemoteServiceType] ?? {}
-            ),
-          } as RemoteServiceConfig;
-          this.realPlugin.settings.remoteServices?.push(newRemoteService);
-          activeTarget.remoteServiceId = newServiceId;
-          assignDefaultTargetScopeInplace(
-            activeTarget,
-            newRemoteServiceType,
-            this.app,
-            activeTarget.id
-          );
-          await this.realPlugin.saveSettings();
-          new Notice(t("settings_remoteservice_created"));
-          this.display();
-        });
-      });
+    const azureBlobStorageFallback = createOptionalServiceFallback(
+      "azureblobstorage-allow-to-use-hide"
+    );
+    let azureBlobStorageAllowedToUsedDiv =
+      azureBlobStorageFallback.allowedToUsedDiv;
+    let azureBlobStorageNotShowUpHintSetting =
+      azureBlobStorageFallback.notShowUpHintSetting;
+    try {
+      ({
+        azureBlobStorageAllowedToUsedDiv,
+        azureBlobStorageNotShowUpHintSetting,
+      } = generateAzureBlobStorageSettingsPart(
+        containerEl,
+        t,
+        this.app,
+        this.plugin,
+        () => this.plugin.saveSettings()
+      ));
+    } catch (error) {
+      console.error("failed to render azureblobstorage settings", error);
+    }
 
     //////////////////////////////////////////////////
     // below for basic settings
@@ -3021,27 +3058,31 @@ export class RemotelySaveSettingTab extends PluginSettingTab {
     //////////////////////////////////////////////////
 
     const proDiv = containerEl.createEl("div");
-    generateProSettingsPart(
-      proDiv,
-      t,
-      this.app,
-      this.plugin,
-      () => this.plugin.saveSettings(),
-      onedriveFullAllowedToUsedDiv,
-      onedriveFullNotShowUpHintSetting,
-      googleDriveAllowedToUsedDiv,
-      googleDriveNotShowUpHintSetting,
-      boxAllowedToUsedDiv,
-      boxNotShowUpHintSetting,
-      pCloudAllowedToUsedDiv,
-      pCloudNotShowUpHintSetting,
-      yandexDiskAllowedToUsedDiv,
-      yandexDiskNotShowUpHintSetting,
-      koofrAllowedToUsedDiv,
-      koofrNotShowUpHintSetting,
-      azureBlobStorageAllowedToUsedDiv,
-      azureBlobStorageNotShowUpHintSetting
-    );
+    try {
+      generateProSettingsPart(
+        proDiv,
+        t,
+        this.app,
+        this.plugin,
+        () => this.plugin.saveSettings(),
+        onedriveFullAllowedToUsedDiv,
+        onedriveFullNotShowUpHintSetting,
+        googleDriveAllowedToUsedDiv,
+        googleDriveNotShowUpHintSetting,
+        boxAllowedToUsedDiv,
+        boxNotShowUpHintSetting,
+        pCloudAllowedToUsedDiv,
+        pCloudNotShowUpHintSetting,
+        yandexDiskAllowedToUsedDiv,
+        yandexDiskNotShowUpHintSetting,
+        koofrAllowedToUsedDiv,
+        koofrNotShowUpHintSetting,
+        azureBlobStorageAllowedToUsedDiv,
+        azureBlobStorageNotShowUpHintSetting
+      );
+    } catch (error) {
+      console.error("failed to render pro settings", error);
+    }
 
     //////////////////////////////////////////////////
     // below for debug

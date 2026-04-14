@@ -63,6 +63,9 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run build
+      - name: Verify DEV manifest identity
+        run: |
+          node -e "const fs=require('fs'); const manifest=JSON.parse(fs.readFileSync('manifest.json','utf8')); if (manifest.id !== 'remotely-save-dev') { console.error('Unexpected manifest id:', manifest.id); process.exit(1); }"
       - name: Create Release And Upload
         uses: softprops/action-gh-release@v2
         with:

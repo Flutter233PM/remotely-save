@@ -263,6 +263,12 @@ export const generateProSettingsPart = (
   azureBlobStorageAllowedToUsedDiv: HTMLDivElement,
   azureBlobStorageNotShowUpHintSetting: Setting
 ) => {
+  plugin.settings.pro = Object.assign({}, cloneDeep(DEFAULT_PRO_CONFIG), {
+    ...(plugin.settings.pro ?? {}),
+    enabledProFeatures: cloneDeep(
+      plugin.settings.pro?.enabledProFeatures ?? []
+    ),
+  });
   proDiv
     .createEl("h2", { text: t("settings_pro") })
     .setAttribute("id", "settings-pro");
