@@ -309,7 +309,7 @@ export const generateProSettingsPart = (
       );
 
       const allowOnedriveFull =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-onedrive_full"
         ).length === 1;
       console.debug(
@@ -330,7 +330,7 @@ export const generateProSettingsPart = (
       }
 
       const allowGoogleDrive =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-google_drive"
         ).length === 1;
       console.debug(
@@ -351,7 +351,7 @@ export const generateProSettingsPart = (
       }
 
       const allowBox =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-box"
         ).length === 1;
       console.debug(`allow to show up Box settings? ${allowBox}`);
@@ -364,7 +364,7 @@ export const generateProSettingsPart = (
       }
 
       const allowPCloud =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-pcloud"
         ).length === 1;
       console.debug(`allow to show up pCloud settings? ${allowPCloud}`);
@@ -381,7 +381,7 @@ export const generateProSettingsPart = (
       }
 
       const allowYandexDisk =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-yandex_disk"
         ).length === 1;
       console.debug(
@@ -400,7 +400,7 @@ export const generateProSettingsPart = (
       }
 
       const allowKoofr =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-koofr"
         ).length === 1;
       console.debug(`allow to show up Koofr settings? ${allowKoofr}`);
@@ -415,7 +415,7 @@ export const generateProSettingsPart = (
       }
 
       const allowAzureBlobStorage =
-        plugin.settings.pro?.enabledProFeatures.filter(
+        (plugin.settings.pro?.enabledProFeatures ?? []).filter(
           (x) => x.featureName === "feature-azure_blob_storage"
         ).length === 1;
       console.debug(

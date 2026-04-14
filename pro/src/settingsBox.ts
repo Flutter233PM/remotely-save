@@ -246,7 +246,7 @@ export const generateBoxSettingsPart = (
   const boxAllowedToUsedDiv = boxDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowBox =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-box"
     ).length === 1;
   console.debug(`allow to show up box settings? ${allowBox}`);

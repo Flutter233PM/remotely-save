@@ -252,7 +252,7 @@ export const generateYandexDiskSettingsPart = (
   const yandexDiskAllowedToUsedDiv = yandexDiskDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowYandexDisk =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-yandex_disk"
     ).length === 1;
   console.debug(`allow to show up yandexDisk settings? ${allowYandexDisk}`);

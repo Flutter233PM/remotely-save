@@ -187,7 +187,7 @@ export const generatePCloudSettingsPart = (
   const pCloudAllowedToUsedDiv = pCloudDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowPCloud =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-pcloud"
     ).length === 1;
   console.debug(`allow to show up pcloud settings? ${allowPCloud}`);

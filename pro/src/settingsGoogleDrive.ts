@@ -255,7 +255,7 @@ export const generateGoogleDriveSettingsPart = (
   const googleDriveAllowedToUsedDiv = googleDriveDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowGoogleDrive =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-google_drive"
     ).length === 1;
   console.debug(`allow to show up google drive settings? ${allowGoogleDrive}`);

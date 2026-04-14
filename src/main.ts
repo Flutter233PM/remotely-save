@@ -1422,6 +1422,11 @@ export default class RemotelySavePlugin extends Plugin {
     );
     this.legacyProjectedStructuredSnapshot = "";
     this.settings = Object.assign({}, cloneDeep(DEFAULT_SETTINGS), loadedData);
+    this.settings.pro = Object.assign(
+      {},
+      cloneDeep(DEFAULT_PRO_CONFIG),
+      this.settings.pro
+    );
     this.syncSettingsCompatibilityProjection();
 
     if (this.settings.syncBookmarks === undefined) {

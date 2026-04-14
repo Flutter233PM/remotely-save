@@ -128,7 +128,7 @@ export const generateAzureBlobStorageSettingsPart = (
   const azureBlobStorageAllowedToUsedDiv = azureBlobStorageDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowAzureBlobStorage =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-azure_blob_storage"
     ).length === 1;
   console.debug(

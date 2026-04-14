@@ -213,7 +213,7 @@ export const generateOnedriveFullSettingsPart = (
   const onedriveFullAllowedToUsedDiv = onedriveFullDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowOnedriveFull =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-onedrive_full"
     ).length === 1;
   console.debug(`allow to show up onedriveFull settings? ${allowOnedriveFull}`);

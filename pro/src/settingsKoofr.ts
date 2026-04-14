@@ -246,7 +246,7 @@ export const generateKoofrSettingsPart = (
   const koofrAllowedToUsedDiv = koofrDiv.createDiv();
   // if pro enabled, show up; otherwise hide.
   const allowKoofr =
-    plugin.settings.pro?.enabledProFeatures.filter(
+    (plugin.settings.pro?.enabledProFeatures ?? []).filter(
       (x) => x.featureName === "feature-koofr"
     ).length === 1;
   console.debug(`allow to show up koofr settings? ${allowKoofr}`);
